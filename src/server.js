@@ -1,82 +1,57 @@
 import express from 'express';
 import cors from 'cors';
-import pinoHttp from 'pino-http';
 import helmet from 'helmet';
 import 'dotenv/config';
+// Імпортуємо наші модулі
 import { connectMongoDB } from './db/connectMongoDB.js';
+import { logger } from './middleware/logger.js';
+import { notFoundHandler } from './middleware/notFoundHandler.js';
+import { errorHandler } from './middleware/errorHandler.js';
+import notesRouter from './routes/notesRoutes.js';
 
-
-// Створюємо екземпляр Express-додатку
-const app = express();
 
 // Отримуємо порт з змінних оточення
 const PORT = process.env.PORT || 3000;
 
-// Підключаємо Middleware
+// Створюємо асинхронну функцію для запуску сервера
+// Щоб гарантовано підключитися до БД
+// ДО того, як сервер почне приймати запити.
+const startServer = async () => {
+  try {
+    // 1. Підключення до MongoDB
+    await connectMongoDB();
 
-  // Підключаємо express.json()
-app.use(express.json());
+    // 2. Створюємо екземпляр Express
+    const app = express();
 
-  // Налаштовуємо логер pino-http
-const logger = pinoHttp();
-app.use(logger);
+    // 3. Підключаємо Middleware
+    app.use(logger); // Логер - першим
+    app.use(helmet()); // Підключаємо helmet для безпеки
+    app.use(cors()); // CORS
+    app.use(express.json()); // Парсер JSON
 
-  // Підключаємо cors
-app.use(cors());
 
-// Підключаємо helmet для безпеки
-app.use(helmet());
+    // 4. Реєструємо наші маршрути
+    app.use(notesRouter);
 
-// підключення до MongoDB
-await connectMongoDB();
+    // 5. Middleware для обробки неіснуючих маршрутів (404)
+    app.use(notFoundHandler);
 
-// Реалізація маршрутів (Endpoints)
-  // Реалізовано маршрут GET /notes
-app.get('/notes', (req, res) => {
-  res.status(200).json({
-    message: 'Retrieved all notes',
-  });
-});
+    // 6. Глобальний обробник помилок (500)
+    app.use(errorHandler);
 
-  // Реалізовано маршрут GET /notes/:noteId
-app.get('/notes/:noteId', (req, res) => {
-  // :noteId - це динамічний параметр.
-  // Express поміщає його в об'єкт req.params.
-  const { noteId } = req.params;
-  res.status(200).json({
-    message: `Retrieved note with ID: ${noteId}`,
-  });
-});
+    // 7. Запуск сервера
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1); // Аварійне завершення, якщо не вдалося запустити сервер
+  }
+};
 
-  // Реалізовано маршрут GET /test-error
-app.get('/test-error', (req, res) => {
-  // Ми "бросаем" (throw) помилку. Express автоматично
-  // перехопить її і передасть в middleware для обробки помилок (500).
-  throw new Error('Simulated server error');
-});
+// Запускаємо сервер
+startServer();
 
-// Обробка неіснуючих маршрутів (404)
-app.use((req, res) => {
-  res.status(404).json({
-    message: 'Route not found',
-  });
-});
-
-// Обробка помилок (500)
-
-app.use((err, req, res, next) => {
-  // Логируем помилку з допомогою pino (який ми додали в req)
-  req.log.error(err);
-
-  // Відправляємо клієнту стандартизований відповідь про помилку
-  res.status(500).json({
-    message: err.message || 'Something went wrong',
-  });
-});
-
-// Запуск сервера
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
 
 
