@@ -3,6 +3,7 @@ import cors from 'cors';
 import pinoHttp from 'pino-http';
 import helmet from 'helmet';
 import 'dotenv/config';
+import { connectMongoDB } from './db/connectMongoDB.js';
 
 
 // Створюємо екземпляр Express-додатку
@@ -25,6 +26,9 @@ app.use(cors());
 
 // Підключаємо helmet для безпеки
 app.use(helmet());
+
+// підключення до MongoDB
+await connectMongoDB();
 
 // Реалізація маршрутів (Endpoints)
   // Реалізовано маршрут GET /notes
