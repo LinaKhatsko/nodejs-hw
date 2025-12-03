@@ -1,5 +1,7 @@
 import { Router } from 'express';
-// Імпортуємо всі наші контролери
+import { celebrate } from 'celebrate'; // Імпортуємо celebrate
+
+// Імпортуємо контролери
 import {
   getAllNotes,
   getNoteById,
@@ -8,22 +10,29 @@ import {
   updateNote,
 } from '../controllers/notesController.js';
 
+// Імпортуємо схеми валідації
+import {
+  getAllNotesSchema,
+  noteIdSchema,
+  createNoteSchema,
+  updateNoteSchema,
+} from '../validations/notesValidation.js';
+
 const router = Router();
 
-// Зверніть увагу, ми вказуємо повний шлях сюди
-// GET /notes - Отримати всі нотатки
-router.get('/notes', getAllNotes);
+// GET /notes (з валідацією query-параметрів)
+router.get('/notes', celebrate(getAllNotesSchema), getAllNotes);
 
-// GET /notes/:noteId - Отримати одну нотатку
-router.get('/notes/:noteId', getNoteById);
+// GET /notes/:noteId (з валідацією ID)
+router.get('/notes/:noteId', celebrate(noteIdSchema), getNoteById);
 
-// POST /notes - Створити нотатку
-router.post('/notes', createNote);
+// POST /notes (з валідацією тіла)
+router.post('/notes', celebrate(createNoteSchema), createNote);
 
-// DELETE /notes/:noteId - Видалити нотатку
-router.delete('/notes/:noteId', deleteNote);
+// DELETE /notes/:noteId (з валідацією ID)
+router.delete('/notes/:noteId', celebrate(noteIdSchema), deleteNote);
 
-// PATCH /notes/:noteId - Оновити нотатку
-router.patch('/notes/:noteId', updateNote);
+// PATCH /notes/:noteId (з валідацією ID та тіла)
+router.patch('/notes/:noteId', celebrate(updateNoteSchema), updateNote);
 
 export default router;

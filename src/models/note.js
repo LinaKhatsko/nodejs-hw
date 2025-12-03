@@ -1,4 +1,5 @@
 import { Schema, model } from 'mongoose';
+import { TAGS } from '../constants/tags';
 
 // Описуємо схему (структуру) нашої нотатки
 const noteSchema = new Schema(
@@ -16,19 +17,8 @@ const noteSchema = new Schema(
     },
     tag: {
       type: String,
-      // enum - це перелік допустимих значень для цього поля
-      enum: [
-        'Work',
-        'Personal',
-        'Meeting',
-        'Shopping',
-        'Ideas',
-        'Travel',
-        'Finance',
-        'Health',
-        'Important',
-        'Todo',
-      ],
+   // Використовуємо імпортований масив
+      enum: TAGS,
       default: 'Todo', // Значення за замовчуванням
     },
   },
@@ -39,6 +29,9 @@ const noteSchema = new Schema(
     versionKey: false,
   },
 );
+
+// Додаємо текстовий індекс для полів title та content
+noteSchema.index({ title: 'text', content: 'text' });
 
 // Створюємо та експортуємо модель 'Note'
 export const Note = model('Note', noteSchema, 'Note');
