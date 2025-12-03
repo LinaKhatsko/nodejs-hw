@@ -1,5 +1,5 @@
 import { Schema, model } from 'mongoose';
-import { TAGS } from '../constants/tags';
+import { TAGS } from '../constants/tags.js';
 
 // Описуємо схему (структуру) нашої нотатки
 const noteSchema = new Schema(
