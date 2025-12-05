@@ -1,43 +1,33 @@
 import { Note } from '../models/note.js';
 import createHttpError from 'http-errors';
 
-// Контролер для отримання ВСІХ нотаток (з пагінацією та фільтрацією)
+// GET /notes (Повертає нотатки ТІЛЬКИ поточного користувача)
 export const getAllNotes = async (req, res, next) => {
   try {
-    // 1. Отримуємо параметри з req.query.
-    // celebrate вже надав нам default-значення, якщо вони не прийшли.
     const { page = 1, perPage = 10, tag, search } = req.query;
+    const { _id: userId } = req.user; // Отримуємо ID з req.user
 
-    // 2. Створюємо об'єкт для фільтрації в MongoDB
-    const filter = {};
+    const filter = { userId }; // ОБОВ'ЯЗКОВИЙ ФІЛЬТР: userId
     if (tag) {
       filter.tag = tag;
     }
     if (search) {
-      // Використовуємо текстовий індекс
       filter.$text = { $search: search };
     }
 
-    // 3. Розраховуємо пропуск (skip) для пагінації
     const skip = (page - 1) * perPage;
 
-    // 4. Створюємо обидва запити (проміси)
-    // Запит на отримання загальної кількості
+    // Шукаємо документи, які належать цьому userId
     const countPromise = Note.countDocuments(filter);
 
-    // Запит на отримання самих нотаток з пагінацією
     const notesPromise = Note.find(filter)
-      .sort({ createdAt: -1 }) // Сортуємо (новіші спочатку)
-      .skip(skip) // Пропускаємо N документів
-      .limit(perPage); // Обмежуємо кількість (perPage)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(perPage);
 
-    // 5. Виконуємо обидва запити ПАРАЛЕЛЬНО за допомогою Promise.all
     const [totalNotes, notes] = await Promise.all([countPromise, notesPromise]);
-
-    // 6. Розраховуємо загальну кількість сторінок
     const totalPages = Math.ceil(totalNotes / perPage);
 
-    // 7. Відправляємо відповідь у форматі
     res.status(200).json({
       page: Number(page),
       perPage: Number(perPage),
@@ -46,19 +36,21 @@ export const getAllNotes = async (req, res, next) => {
       notes,
     });
   } catch (err) {
-    // next(err) - передає помилку далі в глобальний обробник помилок
     next(err);
   }
 };
 
-// Контролер для отримання нотатки за ID
+// GET /notes/:noteId (Шукає нотатку ТІЛЬКИ поточного користувача)
 export const getNoteById = async (req, res, next) => {
-  // Валідація ID вже відбулась у middleware (celebrate)
   try {
     const { noteId } = req.params;
-    const note = await Note.findById(noteId);
+    const { _id: userId } = req.user;
+
+    // Шукаємо за ID нотатки ТА ID користувача
+    const note = await Note.findOne({ _id: noteId, userId });
 
     if (!note) {
+      // 404 - не знайдено (або належить іншому)
       return next(createHttpError(404, 'Note not found'));
     }
 
@@ -68,27 +60,38 @@ export const getNoteById = async (req, res, next) => {
   }
 };
 
-// Контролер для СТВОРЕННЯ нотатки
+// POST /notes (Створює нотатку для поточного користувача)
 export const createNote = async (req, res, next) => {
-  // Валідація тіла запиту вже відбулась у middleware (celebrate)
   try {
-    const note = await Note.create(req.body);
+    const { _id: userId } = req.user;
+
+    // Додаємо userId до тіла запиту перед створенням
+    const note = await Note.create({
+      ...req.body,
+      userId,
+    });
+
     res.status(201).json(note);
   } catch (err) {
     next(err);
   }
 };
 
-// Контролер для ОНОВЛЕННЯ нотатки
+// PATCH /notes/:noteId (Оновлює нотатку ТІЛЬКИ поточного користувача)
 export const updateNote = async (req, res, next) => {
-  // Валідація ID та тіла запиту вже відбулась у middleware (celebrate)
   try {
     const { noteId } = req.params;
+    const { _id: userId } = req.user;
 
-    const note = await Note.findByIdAndUpdate(noteId, req.body, {
-      new: true, // Повертає оновлений документ
-      runValidators: true, // Застосовує валідацію зі схеми
-    });
+    // Оновлюємо, шукаючи за ID нотатки ТА ID користувача
+    const note = await Note.findOneAndUpdate(
+      { _id: noteId, userId }, // Умова пошуку
+      req.body, // Дані для оновлення
+      {
+        new: true,
+        runValidators: true,
+      },
+    );
 
     if (!note) {
       return next(createHttpError(404, 'Note not found'));
@@ -100,12 +103,14 @@ export const updateNote = async (req, res, next) => {
   }
 };
 
-// Контролер для ВИДАЛЕННЯ нотатки
+// DELETE /notes/:noteId (Видаляє нотатку ТІЛЬКИ поточного користувача)
 export const deleteNote = async (req, res, next) => {
-  // Валідація ID вже відбулась у middleware (celebrate)
   try {
     const { noteId } = req.params;
-    const note = await Note.findByIdAndDelete(noteId);
+    const { _id: userId } = req.user;
+
+    // Видаляємо, шукаючи за ID нотатки ТА ID користувача
+    const note = await Note.findOneAndDelete({ _id: noteId, userId });
 
     if (!note) {
       return next(createHttpError(404, 'Note not found'));

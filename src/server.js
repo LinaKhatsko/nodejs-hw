@@ -1,7 +1,8 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
-import { errors } from 'celebrate'; // ! Імпортуємо обробник помилок 'celebra
+import { errors } from 'celebrate';
+import cookieParser from 'cookie-parser'; // Імпортуємо cookie-parser
 
 // Імпортуємо наші модулі
 import { connectMongoDB } from './db/connectMongoDB.js';
@@ -9,50 +10,41 @@ import { logger } from './middleware/logger.js';
 import { notFoundHandler } from './middleware/notFoundHandler.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import notesRouter from './routes/notesRoutes.js';
+import authRouter from './routes/authRoutes.js'; // Імпортуємо authRouter
 
-// Ініціалізуємо dotenv
 dotenv.config();
-
-// Отримуємо порт
 const PORT = process.env.PORT || 3000;
 
-// Створюємо асинхронну функцію для запуску сервера
-// Щоб гарантовано підключитися до БД
-// ДО того, як сервер почне приймати запити.
 const startServer = async () => {
   try {
-    // 1. Підключення до MongoDB
     await connectMongoDB();
-
-    // 2. Створюємо екземпляр Express
     const app = express();
 
-    // 3. Підключаємо Middleware
-    app.use(logger); // Логер - першим
-    app.use(cors()); // CORS
-    app.use(express.json()); // Парсер JSON
+    app.use(logger);
+    app.use(cors());
+    app.use(express.json());
+    app.use(cookieParser()); // Додаємо cookie-parser
 
     // 4. Реєструємо наші маршрути
-    app.use(notesRouter);
+    app.use(authRouter); // Додаємо маршрути аутентифікації
+    app.use(notesRouter); // Додаємо маршрути нотаток
 
-    // 5. Middleware для обробки неіснуючих маршрутів (404)
+    // 5. Обробка 404
     app.use(notFoundHandler);
 
-    // Додаємо обробник помилок від 'celebrate'
+    // 6. Обробник помилок 'celebrate'
     app.use(errors());
 
-    // 6. Глобальний обробник помилок (500)
+    // 7. Глобальний обробник помилок
     app.use(errorHandler);
 
-    // 7. Запуск сервера
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
-    process.exit(1); // Аварійне завершення, якщо не вдалося запустити сервер
+    process.exit(1);
   }
 };
 
-// Запускаємо сервер
 startServer();
