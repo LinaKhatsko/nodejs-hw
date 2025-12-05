@@ -1,7 +1,5 @@
 import { Router } from 'express';
-import { celebrate } from 'celebrate'; // Імпортуємо celebrate
-
-// Імпортуємо контролери
+import { celebrate } from 'celebrate';
 import {
   getAllNotes,
   getNoteById,
@@ -9,30 +7,33 @@ import {
   deleteNote,
   updateNote,
 } from '../controllers/notesController.js';
-
-// Імпортуємо схеми валідації
 import {
   getAllNotesSchema,
   noteIdSchema,
   createNoteSchema,
   updateNoteSchema,
 } from '../validations/notesValidation.js';
+// Імпортуємо наш новий middleware
+import { authenticate } from '../middleware/authenticate.js';
 
 const router = Router();
 
-// GET /notes (з валідацією query-параметрів)
+// Застосовуємо 'authenticate' до ВСІХ маршрутів нотаток
+router.use('/notes', authenticate);
+
+// GET /notes
 router.get('/notes', celebrate(getAllNotesSchema), getAllNotes);
 
-// GET /notes/:noteId (з валідацією ID)
+// GET /notes/:noteId
 router.get('/notes/:noteId', celebrate(noteIdSchema), getNoteById);
 
-// POST /notes (з валідацією тіла)
+// POST /notes
 router.post('/notes', celebrate(createNoteSchema), createNote);
 
-// DELETE /notes/:noteId (з валідацією ID)
+// DELETE /notes/:noteId
 router.delete('/notes/:noteId', celebrate(noteIdSchema), deleteNote);
 
-// PATCH /notes/:noteId (з валідацією ID та тіла)
+// PATCH /notes/:noteId
 router.patch('/notes/:noteId', celebrate(updateNoteSchema), updateNote);
 
 export default router;
