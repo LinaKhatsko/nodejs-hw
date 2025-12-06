@@ -18,6 +18,10 @@ const userSchema = new Schema(
       required: true,
       minlength: 8, // мінімальна довжина паролю
     },
+    avatar: {
+      type: String,
+      default: 'https://ac.goit.global/fullstack/react/default-avatar.jpg',
+    },
   },
   {
     timestamps: true,
