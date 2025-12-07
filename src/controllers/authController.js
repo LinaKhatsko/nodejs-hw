@@ -1,10 +1,12 @@
+import handlebars from 'handlebars';
+import path from 'node:path';
+import fs from 'node:fs/promises';
 import { User } from '../models/user.js';
 import { Session } from '../models/session.js';
 import { createSession, setSessionCookies } from '../services/auth.js';
 import createHttpError from 'http-errors';
 import bcrypt from 'bcrypt';
 import { sendEmail } from '../utils/sendMail.js';
-import { randomBytes } from 'crypto';
 import jwt from 'jsonwebtoken';
 
 // Контролер для POST /auth/register
@@ -47,37 +49,10 @@ export const loginUser = async (req, res, next) => {
       return next(createHttpError(401, 'Invalid email or password'));
     }
 
+    // Оновлення сесії та встановлення кукі
     await Session.deleteOne({ userId: user._id });
-
-    const session = await Session.create({
-      userId: user._id,
-      accessToken: randomBytes(32).toString('base64'),
-      refreshToken: randomBytes(32).toString('base64'),
-      accessTokenValidUntil: new Date(Date.now() + 15 * 60 * 1000),
-      refreshTokenValidUntil: new Date(Date.now() + 24 * 60 * 60 * 1000),
-    });
-
-    // Налаштування куків для production
-    const cookieOptions = {
-      httpOnly: true, // Захист від XSS
-      secure: true, // Тільки HTTPS
-      sameSite: 'none', // Cross-origin між Vercel та Render
-    };
-
-    res.cookie('accessToken', session.accessToken, {
-      ...cookieOptions,
-      maxAge: 15 * 60 * 1000, // 15 хвилин
-    });
-
-    res.cookie('refreshToken', session.refreshToken, {
-      ...cookieOptions,
-      maxAge: 24 * 60 * 60 * 1000, // 1 день
-    });
-
-    res.cookie('sessionId', session._id.toString(), {
-      ...cookieOptions,
-      maxAge: 24 * 60 * 60 * 1000, // 1 день
-    });
+    const session = await createSession(user._id);
+    setSessionCookies(res, session);
 
     res.status(200).json({
       status: 200,
@@ -114,36 +89,10 @@ export const refreshUserSession = async (req, res, next) => {
       return next(createHttpError(401, 'Refresh token expired'));
     }
 
+    // Оновлення сесії та встановлення кукі
     await Session.deleteOne({ _id: sessionId });
-
-    const newSession = await Session.create({
-      userId: session.userId,
-      accessToken: randomBytes(32).toString('base64'),
-      refreshToken: randomBytes(32).toString('base64'),
-      accessTokenValidUntil: new Date(Date.now() + 15 * 60 * 1000),
-      refreshTokenValidUntil: new Date(Date.now() + 24 * 60 * 60 * 1000),
-    });
-
-    const cookieOptions = {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none',
-    };
-
-    res.cookie('accessToken', newSession.accessToken, {
-      ...cookieOptions,
-      maxAge: 15 * 60 * 1000,
-    });
-
-    res.cookie('refreshToken', newSession.refreshToken, {
-      ...cookieOptions,
-      maxAge: 24 * 60 * 60 * 1000,
-    });
-
-    res.cookie('sessionId', newSession._id.toString(), {
-      ...cookieOptions,
-      maxAge: 24 * 60 * 60 * 1000,
-    });
+    const newSession = await createSession(session.userId);
+    setSessionCookies(res, newSession);
 
     res.status(200).json({ message: 'Session refreshed' });
   } catch (err) {
@@ -200,18 +149,29 @@ export const requestResetEmail = async (req, res, next) => {
     // 3. Створюємо посилання для фронтенду
     const resetLink = `${process.env.FRONTEND_DOMAIN}/reset-password?token=${token}`;
 
-    // 4. Відправляємо лист (шаблон src/templates/reset-password-email.html)
-    await sendEmail(
-      email,
-      'Reset your password',
-      'reset-password-email', // Назва шаблону
-      {
-        name: user.username,
-        link: resetLink,
-      },
-    );
+    // 4. Формуємо лист зі скидання пароля
+    //  Формуємо шлях до шаблона
+    const templatePath = path.resolve('src/templates/reset-password-email.html');
+    // Читаємо шаблон
+    const templateSource = await fs.readFile(templatePath, 'utf-8');
+    // Готуємо шаблон до заповнення
+    const template = handlebars.compile(templateSource);
+    // Формуємо із шаблона HTML документ з динамічними даними
+    const html = template({
+      name: user.username,
+      link: resetLink,
+    });
 
-    // 5. Відповідь (завжди однакова для безпеки)
+
+    // 5. Відправляємо лист (шаблон src/templates/reset-password-email.html)
+    await sendEmail({
+      from: process.env.SMTP_FROM,
+      to: email,
+      subject: 'Reset your password',
+      html,
+    });
+
+    // 6. Відповідь (завжди однакова для безпеки)
     res.status(200).json({
       message: 'Password reset email sent successfully',
     });
