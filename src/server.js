@@ -14,7 +14,7 @@ import notesRouter from './routes/notesRoutes.js';
 import authRouter from './routes/authRoutes.js';
 import userRouter from './routes/userRoutes.js';
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT ?? 3000;
 
 const startServer = async () => {
   try {
@@ -45,9 +45,9 @@ const startServer = async () => {
     app.use(cookieParser());
 
     // Routes
-    app.use('/auth', authRouter);
-    app.use('/notes', notesRouter);
-    app.use('/users', userRouter);
+    app.use(authRouter);
+    app.use(notesRouter);
+    app.use(userRouter);
 
     // Error handling
     app.use(notFoundHandler);

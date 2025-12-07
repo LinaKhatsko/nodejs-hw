@@ -19,21 +19,21 @@ import { authenticate } from '../middleware/authenticate.js';
 const router = Router();
 
 // Застосовуємо 'authenticate' до ВСІХ маршрутів нотаток
-router.use(authenticate);
+router.use('/notes', authenticate);
 
 // GET
-router.get('/', celebrate(getAllNotesSchema), getAllNotes);
+router.get('/notes', celebrate(getAllNotesSchema), getAllNotes);
 
 // GET /:noteId
-router.get('/:noteId', celebrate(noteIdSchema), getNoteById);
+router.get('/notes/:noteId', celebrate(noteIdSchema), getNoteById);
 
 // POST /
-router.post('/', celebrate(createNoteSchema), createNote);
+router.post('/notes/', celebrate(createNoteSchema), createNote);
 
 // DELETE /:noteId
-router.delete('/:noteId', celebrate(noteIdSchema), deleteNote);
+router.delete('/notes/:noteId', celebrate(noteIdSchema), deleteNote);
 
 // PATCH /:noteId
-router.patch('/:noteId', celebrate(updateNoteSchema), updateNote);
+router.patch('/notes/:noteId', celebrate(updateNoteSchema), updateNote);
 
 export default router;
